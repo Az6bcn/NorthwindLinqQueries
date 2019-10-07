@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.EntityFrameworkCore;
 using Northwind_linq.Models;
 
 namespace Northwind_linq
@@ -15,9 +16,9 @@ namespace Northwind_linq
 
             // ReportEmployeeOrdersAndNameOfCompanyThatPlacedOrders(dbContext);
 
-            ReportEmployeeOrders(dbContext);
+            // ReportEmployeeOrders(dbContext);
 
-
+            ReportCustomerProductSupplierName(dbContext);
 
         }
 
@@ -103,6 +104,10 @@ namespace Northwind_linq
 
         }
 
+        /// <summary>
+        /// Get data and related data by projecting into it, using SELECT operator to access and load /filter related data
+        /// </summary>
+        /// <param name="dbContext"></param>
         private static void ReportEmployeeOrders(NorthwindContext dbContext)
         {
             // title and names of employees who have sold products: 'Gravad Lax', 'Mishi Kobe Niku'
@@ -116,8 +121,6 @@ namespace Northwind_linq
                                                     {
                                                         employeesDetails = y.Order.Employee
                                                     }),
-
-
                                         product = y.ProductName
                                     });
 
@@ -145,5 +148,63 @@ namespace Northwind_linq
         }
 
 
+        /// <summary>
+        /// Get data and related data by using Include and ThenInclude, then later iterate over it
+        /// </summary>
+        /// <param name="context"></param>
+        private static void ReportCustomerProductSupplierName(NorthwindContext context)
+        {
+            Console.WriteLine("****************************************************************************");
+            Console.WriteLine("  customer name, the product name and the supplier name for customers who live" +
+                              " in London and suppliers whose name is `Pavlova, Ltd.' or `Karkki Oy' ");
+            Console.WriteLine("****************************************************************************");
+
+            // load all data and all related data
+            var suppliers = context.Suppliers
+                              .Include(x => x.Products)
+                                .ThenInclude(y => y.OrderDetails)
+                                 .ThenInclude(y => y.Order)
+                                    .ThenInclude(y => y.Employee)
+                              .ToList();
+
+            suppliers = suppliers.Where(x => x.CompanyName == "Pavlova, Ltd." || x.CompanyName == "Karkki Oy").ToList();
+
+
+            var responseList = new List<ReportCustomerProductSupplierNameDTO>();
+
+
+            foreach (var supplier in suppliers)
+            {
+                foreach (var product in supplier.Products)
+                {
+                    foreach (var orderDetails in product.OrderDetails)
+                    {
+                        var employee = orderDetails.Order.Employee;
+                        if (employee.City == "London") { 
+                            responseList.Add(new ReportCustomerProductSupplierNameDTO
+                            {
+                                CustomrName = $"{employee.FirstName} {employee.LastName}",
+                                ProductName = product.ProductName,
+                                SupplierName = supplier.CompanyName
+                            });
+                        }
+                    }
+                }
+            }
+
+            foreach (var item in responseList)
+            {
+                Console.WriteLine($"CustomerName: {item.CustomrName}, ProductName: {item.ProductName}, SupplierName: {item.SupplierName}");
+            }
+
+        }
     }
+}
+
+
+public class ReportCustomerProductSupplierNameDTO
+{
+    public string CustomrName { get; set; }
+    public string ProductName { get; set; }
+    public string SupplierName { get; set; }
 }
