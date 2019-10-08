@@ -18,7 +18,8 @@ namespace Northwind_linq
 
             // ReportEmployeeOrders(dbContext);
 
-            ReportCustomerProductSupplierName(dbContext);
+            //ReportCustomerProductSupplierName(dbContext);
+            ReportProductsBoughtOrSoldByPeopleWhoLiveInLondon(dbContext);
 
         }
 
@@ -198,7 +199,76 @@ namespace Northwind_linq
             }
 
         }
+
+        /// <summary>
+        /// Get data and related data by using Include and ThenInclude, then later iterate over it
+        /// </summary>
+        /// <param name="context"></param>
+        private static void ReportProductsBoughtOrSoldByPeopleWhoLiveInLondon (NorthwindContext context)
+        {
+            Console.WriteLine("****************************************************************************");
+            Console.WriteLine(" name of products that were bought or sold by people who live in London");
+            Console.WriteLine("****************************************************************************");
+
+
+            Console.WriteLine("==================== Data with Relted Data Using Includes =========================");
+
+            var products = context.Products
+                                 .Include(x => x.OrderDetails)
+                                    .ThenInclude(y => y.Order)
+                                        .ThenInclude(y => y.Customer)
+                                 .Include(x => x.OrderDetails)
+                                        .ThenInclude(y => y.Order)
+                                            .ThenInclude(y => y.Employee)
+                                 .ToList();
+
+            var productNames = new List<string> (); 
+
+            foreach (var product in products)
+            {
+                foreach (var orderDetail in product.OrderDetails)
+                {
+                    if (orderDetail.Order.Customer.City == "London" || (orderDetail.Order.Employee.City == "London"))
+                    {
+                        productNames.Add(product.ProductName);
+                    }
+                }
+            }
+
+
+            Console.WriteLine("Count: {0}", productNames.Distinct().ToList().Count());
+
+            productNames.Distinct().ToList().ForEach(x => Console.WriteLine($"{x}"));
+
+
+
+            Console.WriteLine("****************************************************************************");
+            Console.WriteLine(" name of products that were bought or sold by people who live in London");
+            Console.WriteLine("****************************************************************************");
+
+
+            Console.WriteLine("==================== Data with Relted Data Using SELECT Projection =========================");
+
+            var productNames2 = context.Products
+                                  .Select(x => new
+                                  {
+                                    validList =  x.OrderDetails.Select(y => new
+                                              {
+                                                  validLondonCustomer = (y.Order.Customer.City == "London"
+                                                                            || y.Order.Employee.City == "London") ? y.Product.ProductName :  null,
+                                              })
+                                              .Where(z => z.validLondonCustomer != null ).ToList()
+                                  }).ToList();
+
+            var productNames2Flattened = productNames2.SelectMany(x => x.validList).ToList();
+
+            Console.WriteLine("Count: {0}", productNames2Flattened.Distinct().ToList().Count());
+
+            productNames.Distinct().ToList().ForEach(x => Console.WriteLine($"{x}"));
+
+        }
     }
+
 }
 
 
